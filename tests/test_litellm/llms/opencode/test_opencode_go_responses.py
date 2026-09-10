@@ -13,6 +13,7 @@ Acceptance criteria from Issue 04:
 """
 
 import json
+import uuid
 
 
 import respx  # noqa: F401  # required for pytest-respx fixture
@@ -221,6 +222,35 @@ class TestGoValidateEnvironment:
                 litellm_params=GenericLiteLLMParams(),
             )
 
+    def test_session_id_header_present(self):
+        """validate_environment injects a UUID4 X-Session-ID header."""
+        headers: dict = {}
+        from litellm.types.router import GenericLiteLLMParams
+
+        result = self.cfg.validate_environment(
+            headers=headers,
+            model="gpt-5.6-luna",
+            litellm_params=GenericLiteLLMParams(api_key="sk-test-123"),
+        )
+        assert "X-Session-ID" in result
+        assert uuid.UUID(result["X-Session-ID"]).version == 4
+
+    def test_session_id_header_is_unique_per_call(self):
+        """Each call gets a fresh UUID4 — the header is never reused."""
+        from litellm.types.router import GenericLiteLLMParams
+
+        result_a = self.cfg.validate_environment(
+            headers={},
+            model="gpt-5.6-luna",
+            litellm_params=GenericLiteLLMParams(api_key="sk-test-123"),
+        )
+        result_b = self.cfg.validate_environment(
+            headers={},
+            model="gpt-5.6-luna",
+            litellm_params=GenericLiteLLMParams(api_key="sk-test-123"),
+        )
+        assert result_a["X-Session-ID"] != result_b["X-Session-ID"]
+
 
 # ---------------------------------------------------------------------------
 # Responses-config resolver
@@ -314,6 +344,7 @@ class TestGoMockedCompletion:
         request = respx_mock.calls[0].request
         assert "/v1/responses" in str(request.url)
         assert request.headers["Authorization"] == "Bearer sk-fake"
+        assert uuid.UUID(request.headers["X-Session-ID"]).version == 4
 
     def test_bearer_auth_from_module_key(self, respx_mock, monkeypatch):
         """Module-level opencode_go_api_key provides the Bearer token."""

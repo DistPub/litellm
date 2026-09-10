@@ -17,6 +17,7 @@ from typing import Final
 from litellm.llms.anthropic.chat.transformation import AnthropicConfig
 from litellm.llms.opencode.common_utils import (
     cost_map_max_output_tokens,
+    inject_session_id_header,
     resolve_opencode_api_key,
 )
 from litellm.types.llms.openai import AllMessageValues
@@ -100,7 +101,7 @@ class OpenCodeAnthropicConfig(AnthropicConfig):
         params: Final = (
             litellm_params if isinstance(litellm_params, dict) else litellm_params.model_dump(exclude_none=True)
         )
-        return super().validate_environment(
+        resolved_headers: Final = super().validate_environment(
             headers=headers,
             model=model,
             messages=messages,
@@ -109,3 +110,4 @@ class OpenCodeAnthropicConfig(AnthropicConfig):
             api_key=resolved_key,
             api_base=api_base,
         )
+        return inject_session_id_header(dict(resolved_headers))

@@ -6,6 +6,7 @@ mapping, auth header selection, or URL construction are mutated.
 """
 
 import json
+import uuid
 
 
 import respx  # noqa: F401  # required for pytest-respx fixture
@@ -245,6 +246,64 @@ class TestValidateEnvironment:
         assert result["Authorization"] == "Bearer sk-go-789"
         monkeypatch.delenv("OPENCODE_GO_API_KEY")
 
+    def test_session_id_header_present(self):
+        """validate_environment injects a UUID4 X-Session-ID header."""
+        headers: dict = {}
+        result = self.cfg.validate_environment(
+            headers=headers,
+            model="gpt-5.1",
+            messages=[],
+            optional_params={},
+            litellm_params={},
+            api_key="sk-test",
+        )
+        assert "X-Session-ID" in result
+        assert uuid.UUID(result["X-Session-ID"]).version == 4
+
+    def test_session_id_header_is_unique_per_call(self):
+        """Each call gets a fresh UUID4 — the header is never reused."""
+        result_a = self.cfg.validate_environment(
+            headers={},
+            model="gpt-5.1",
+            messages=[],
+            optional_params={},
+            litellm_params={},
+            api_key="sk-test",
+        )
+        result_b = self.cfg.validate_environment(
+            headers={},
+            model="gpt-5.1",
+            messages=[],
+            optional_params={},
+            litellm_params={},
+            api_key="sk-test",
+        )
+        assert result_a["X-Session-ID"] != result_b["X-Session-ID"]
+
+
+class TestOpenCodeAnthropicConfig:
+    """X-Session-ID is also injected on the Anthropic-wire chat arm."""
+
+    def _make_cfg(self):
+        from litellm.llms.opencode.chat.anthropic_transformation import (
+            OpenCodeAnthropicConfig,
+        )
+
+        return OpenCodeAnthropicConfig(surface="zen")
+
+    def test_session_id_header_present(self):
+        headers: dict = {}
+        result = self._make_cfg().validate_environment(
+            headers=headers,
+            model="claude-sonnet-4",
+            messages=[],
+            optional_params={},
+            litellm_params={},
+            api_key="sk-test",
+        )
+        assert "X-Session-ID" in result
+        assert uuid.UUID(result["X-Session-ID"]).version == 4
+
 
 # ---------------------------------------------------------------------------
 # Integration — mocked completion call
@@ -285,6 +344,7 @@ class TestMockedCompletion:
         assert len(respx_mock.calls) > 0
         request = respx_mock.calls[0].request
         assert request.headers["Authorization"] == "Bearer sk-fake"
+        assert uuid.UUID(request.headers["X-Session-ID"]).version == 4
         body = json.loads(request.read())
         assert body["messages"] == [{"role": "user", "content": "hi"}]
 

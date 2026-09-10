@@ -13,6 +13,7 @@ from typing import (
 )
 
 import litellm
+from litellm.llms.opencode.common_utils import inject_session_id_header
 from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 from litellm.secret_managers.main import get_secret_str
 from litellm.types.responses.main import *
@@ -68,7 +69,7 @@ class OpenCodeGoResponsesAPIConfig(OpenAIResponsesAPIConfig):
 
         headers["Content-Type"] = "application/json"  # rebind-ok: caller expects auth header injected
         headers["Authorization"] = f"Bearer {api_key}"  # rebind-ok: caller expects auth header injected
-        return headers
+        return inject_session_id_header(headers)
 
     def get_complete_url(
         self,

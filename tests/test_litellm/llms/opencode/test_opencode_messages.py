@@ -7,6 +7,7 @@ mapping, auth header selection, or URL construction are mutated.
 
 import asyncio
 import json
+import uuid
 from datetime import datetime
 
 
@@ -313,6 +314,43 @@ class TestAuthHeader:
         )
         assert result["content-type"] == "application/json"
 
+    @pytest.mark.parametrize("surface", ["zen", "go"])
+    def test_session_id_header_present(self, surface):
+        """Both surfaces inject a UUID4 X-Session-ID on the messages arm."""
+        cfg = self._make_cfg(surface)
+        headers: dict = {}
+        result, _ = cfg.validate_anthropic_messages_environment(
+            headers=headers,
+            model="claude-sonnet-4" if surface == "zen" else "minimax-m2.5",
+            messages=[],
+            optional_params={},
+            litellm_params={},
+            api_key="sk-key",
+        )
+        assert "X-Session-ID" in result
+        assert uuid.UUID(result["X-Session-ID"]).version == 4
+
+    def test_session_id_header_is_unique_per_call(self):
+        """Each call gets a fresh UUID4 — the header is never reused."""
+        cfg = self._make_cfg("zen")
+        result_a, _ = cfg.validate_anthropic_messages_environment(
+            headers={},
+            model="claude-sonnet-4",
+            messages=[],
+            optional_params={},
+            litellm_params={},
+            api_key="sk-key",
+        )
+        result_b, _ = cfg.validate_anthropic_messages_environment(
+            headers={},
+            model="claude-sonnet-4",
+            messages=[],
+            optional_params={},
+            litellm_params={},
+            api_key="sk-key",
+        )
+        assert result_a["X-Session-ID"] != result_b["X-Session-ID"]
+
 
 # ---------------------------------------------------------------------------
 # Integration — mocked messages completion call
@@ -394,6 +432,7 @@ class TestMockedMessagesCompletion:
         assert request.headers.get("x-api-key") == "sk-zen-123"
         # Bearer should NOT be present for zen messages arm
         assert "Authorization" not in request.headers
+        assert uuid.UUID(request.headers["X-Session-ID"]).version == 4
 
     def test_messages_model_uses_anthropic_body_shape(self, respx_mock, monkeypatch):
         """The request body uses Anthropic Messages format, not OpenAI."""
@@ -493,6 +532,7 @@ class TestMockedMessagesCompletion:
         assert request.headers.get("x-api-key") == "sk-go-123"
         # Bearer should NOT be present for go messages arm
         assert "Authorization" not in request.headers
+        assert uuid.UUID(request.headers["X-Session-ID"]).version == 4
 
     def test_global_api_key_not_sent_on_messages_dispatch(self, respx_mock, monkeypatch):
         """Messages arm uses the OpenCode key, not a process-wide litellm.api_key.

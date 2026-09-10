@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import Mapping
 from functools import lru_cache
 from types import MappingProxyType
@@ -9,6 +10,18 @@ from litellm.secret_managers.main import get_secret_str
 
 class OpenCodeException(BaseLLMException):
     """Exception for OpenCode API errors."""
+
+
+def inject_session_id_header(headers: dict) -> dict:
+    """Inject a random ``X-Session-ID`` header into *headers*.
+
+    Generates a fresh UUID4 for each LLM request so individual calls can be
+    correlated on the gateway side. Called from every arm's
+    ``validate_environment`` so the header is present regardless of which wire
+    format a model uses.
+    """
+    headers["X-Session-ID"] = str(uuid.uuid4())  # rebind-ok: caller expects header injected
+    return headers
 
 
 # Models the gateway serves over the OpenAI Responses wire format, per surface.

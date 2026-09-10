@@ -147,3 +147,4 @@ crash.*.log
 
 ui/litellm-dashboard/out/
 litellm.log
+.omo/

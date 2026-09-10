@@ -16,6 +16,7 @@ from litellm.llms.openai.chat.gpt_transformation import (
 )
 from litellm.llms.opencode.common_utils import (
     OpenCodeException,
+    inject_session_id_header,
     resolve_opencode_api_base,
     resolve_opencode_api_key,
 )
@@ -64,7 +65,7 @@ class OpenCodeConfig(OpenAIGPTConfig):
         if content_type is None:
             headers["Content-Type"] = "application/json"  # rebind-ok: caller expects content-type set
 
-        return headers
+        return inject_session_id_header(headers)
 
     def get_complete_url(
         self,

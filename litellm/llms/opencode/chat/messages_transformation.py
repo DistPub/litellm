@@ -20,6 +20,7 @@ from litellm.llms.base_llm.chat.transformation import BaseLLMException
 from litellm.llms.opencode.common_utils import (
     OpenCodeException,
     cost_map_max_output_tokens,
+    inject_session_id_header,
     resolve_opencode_api_base,
     resolve_opencode_api_key,
 )
@@ -182,7 +183,7 @@ class OpenCodeMessagesConfig(AnthropicMessagesConfig):
             api_key=key,
             api_base=base_url,
         )
-        return resolved_headers, resolved_base_url
+        return inject_session_id_header(resolved_headers), resolved_base_url
 
     def get_error_class(
         self,
