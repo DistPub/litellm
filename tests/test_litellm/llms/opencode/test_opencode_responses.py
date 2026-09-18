@@ -356,6 +356,7 @@ class TestMockedCompletion:
         assert "error" not in response
         assert len(respx_mock.calls) > 0
         payload = json.loads(respx_mock.calls[0].request.read())
+        assert payload.get("stream") is True
         tool_names = {tool["function"]["name"] for tool in payload.get("tools", []) if isinstance(tool, dict)}
         assert {"bash", "read", "glob", "grep", "edit", "write", "webfetch", "websearch", "task"} <= tool_names
 

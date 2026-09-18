@@ -285,6 +285,7 @@ class HealthCheckHelpers:
 
         if custom_llm_provider in ("opencode_zen", "opencode_go"):
             model_params = _with_opencode_default_tools(model_params)
+            model_params["stream"] = True
 
         return {
             "chat": lambda: litellm.acompletion(
