@@ -336,6 +336,29 @@ class TestMockedCompletion:
         monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
         litellm.in_memory_llm_clients_cache.flush_cache()
 
+    async def test_opencode_health_check_injects_default_tools(self, respx_mock, monkeypatch):
+        """OpenCode health checks should request the default tool set from the CLI permissions model."""
+        respx_mock.post("https://opencode.ai/zen/v1/chat/completions").mock(
+            return_value=Response(
+                200,
+                json={"id": "chatcmpl-123", "model": "gpt-5.5", "choices": [{"message": {"role": "assistant", "content": "ok"}}]},
+            )
+        )
+
+        monkeypatch.setattr(litellm, "opencode_zen_api_key", "sk-fake")
+        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+
+        response = await litellm.ahealth_check(
+            model_params={"model": "opencode_zen/gpt-5.5"},
+            mode="chat",
+        )
+
+        assert "error" not in response
+        assert len(respx_mock.calls) > 0
+        payload = json.loads(respx_mock.calls[0].request.read())
+        tool_names = {tool["function"]["name"] for tool in payload.get("tools", []) if isinstance(tool, dict)}
+        assert {"bash", "read", "glob", "grep", "edit", "write", "webfetch", "websearch", "task"} <= tool_names
+
     def test_responses_bridge_hits_responses_endpoint(self, respx_mock, monkeypatch):
         """opencode_zen/gpt-5.5 is routed to /v1/responses, not /v1/chat/completions."""
         respx_mock.post(ZEN_RESPONSE_ENDPOINT).mock(

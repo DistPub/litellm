@@ -22,6 +22,97 @@ IMAGE_EDIT_HEALTH_CHECK_PROMPT: Final = (
     "Add a small yellow star in the top right corner of this simple drawing of a blue circle on a white background"
 )
 
+_OPENCODE_HEALTH_CHECK_TOOLS: Final = (
+    {
+        "type": "function",
+        "function": {
+            "name": "bash",
+            "description": "Run shell commands in the local workspace.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read",
+            "description": "Read files and directories from the local workspace.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "glob",
+            "description": "Find files by glob patterns.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "grep",
+            "description": "Search code and text for matches.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list",
+            "description": "List files and directories.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit",
+            "description": "Edit files in the local workspace.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write",
+            "description": "Create or overwrite files in the local workspace.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "webfetch",
+            "description": "Fetch remote web content.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "websearch",
+            "description": "Search the web for information.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "task",
+            "description": "Run long-lived tasks or plans.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+)
+
+
+def _with_opencode_default_tools(model_params: dict) -> dict:
+    """Inject the default OpenCode CLI tool set used by the explore permission preset."""
+    if model_params.get("tools") is not None:
+        return model_params
+    model_params["tools"] = list(_OPENCODE_HEALTH_CHECK_TOOLS)
+    return model_params
+
 
 def get_image_file_for_health_check() -> bytes:
     """Return the image used for health checks."""
@@ -191,6 +282,9 @@ class HealthCheckHelpers:
         )
         from litellm.litellm_core_utils.health_check_utils import _filter_model_params
         from litellm.realtime_api.main import _realtime_health_check
+
+        if custom_llm_provider in ("opencode_zen", "opencode_go"):
+            model_params = _with_opencode_default_tools(model_params)
 
         return {
             "chat": lambda: litellm.acompletion(
