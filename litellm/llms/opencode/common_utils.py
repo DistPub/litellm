@@ -20,7 +20,12 @@ _BASE62_ALPHABET: Final = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq
 
 def _generate_opencode_session_id() -> str:
     """Return the OpenCode session id format required by the gateway."""
-    timestamp_hex: Final = f"{(time.time_ns() // 1_000_000) & 0xFFFFFFFFFFFF:012x}"
+    now_ms: Final = time.time_ns() // 1_000_000
+    now_bigint: Final = now_ms & ((1 << 48) - 1)
+    time_bytes: Final = bytearray(6)
+    for i in range(6):
+        time_bytes[i] = int((now_bigint >> (40 - 8 * i)) & 0xFF)
+    timestamp_hex: Final = time_bytes.hex()
     session_suffix: Final = "".join(secrets.choice(_BASE62_ALPHABET) for _ in range(14))
     return f"ses_{timestamp_hex}{session_suffix}"
 
