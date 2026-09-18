@@ -1,3 +1,5 @@
+import secrets
+import time
 import uuid
 from collections.abc import Mapping
 from functools import lru_cache
@@ -12,14 +14,26 @@ class OpenCodeException(BaseLLMException):
     """Exception for OpenCode API errors."""
 
 
-def inject_session_id_header(headers: dict) -> dict:
-    """Inject a random ``X-Session-ID`` header into *headers*.
+_OPENCODE_USER_AGENT: Final = "opencode/1.18.31"
+_BASE62_ALPHABET: Final = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-    Generates a fresh UUID4 for each LLM request so individual calls can be
-    correlated on the gateway side. Called from every arm's
-    ``validate_environment`` so the header is present regardless of which wire
-    format a model uses.
+
+def _generate_opencode_session_id() -> str:
+    """Return the OpenCode session id format required by the gateway."""
+    timestamp_hex: Final = f"{(time.time_ns() // 1_000_000) & 0xFFFFFFFFFFFF:012x}"
+    session_suffix: Final = "".join(secrets.choice(_BASE62_ALPHABET) for _ in range(14))
+    return f"ses_{timestamp_hex}{session_suffix}"
+
+
+def inject_session_id_header(headers: dict) -> dict:
+    """Inject the OpenCode runtime headers into *headers*.
+
+    OpenCode requires both the vendor-specific session header and the constant
+    user-agent string on every request. The UUID header remains for LiteLLM's
+    internal correlation and is still generated per call.
     """
+    headers["User-Agent"] = _OPENCODE_USER_AGENT  # rebind-ok: caller expects runtime headers injected
+    headers["x-opencode-session"] = _generate_opencode_session_id()  # rebind-ok: caller expects runtime headers injected
     headers["X-Session-ID"] = str(uuid.uuid4())  # rebind-ok: caller expects header injected
     return headers
 

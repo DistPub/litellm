@@ -6,6 +6,7 @@ mapping, auth header selection, or URL construction are mutated.
 """
 
 import json
+import re
 import uuid
 
 
@@ -279,6 +280,19 @@ class TestValidateEnvironment:
             api_key="sk-test",
         )
         assert result_a["X-Session-ID"] != result_b["X-Session-ID"]
+
+    def test_opencode_runtime_headers_present(self):
+        headers: dict = {}
+        result = self.cfg.validate_environment(
+            headers=headers,
+            model="gpt-5.1",
+            messages=[],
+            optional_params={},
+            litellm_params={},
+            api_key="sk-test",
+        )
+        assert result["User-Agent"] == "opencode/1.18.31"
+        assert re.fullmatch(r"ses_[0-9a-f]{12}[0-9A-Za-z]{14}", result["x-opencode-session"]) is not None
 
 
 class TestOpenCodeAnthropicConfig:

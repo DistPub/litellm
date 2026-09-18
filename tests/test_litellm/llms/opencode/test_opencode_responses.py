@@ -13,6 +13,7 @@ Acceptance criteria from Issue 03:
 """
 
 import json
+import re
 import uuid
 
 
@@ -230,6 +231,18 @@ class TestValidateEnvironment:
             litellm_params=GenericLiteLLMParams(api_key="sk-test-123"),
         )
         assert result_a["X-Session-ID"] != result_b["X-Session-ID"]
+
+    def test_opencode_runtime_headers_present(self):
+        headers: dict = {}
+        from litellm.types.router import GenericLiteLLMParams
+
+        result = self.cfg.validate_environment(
+            headers=headers,
+            model="gpt-5.5",
+            litellm_params=GenericLiteLLMParams(api_key="sk-test-123"),
+        )
+        assert result["User-Agent"] == "opencode/1.18.31"
+        assert re.fullmatch(r"ses_[0-9a-f]{12}[0-9A-Za-z]{14}", result["x-opencode-session"]) is not None
 
 
 # ---------------------------------------------------------------------------
