@@ -190,6 +190,61 @@ def resolve_opencode_api_key(surface: str, api_key: str | None = None) -> str | 
     )
 
 
+_OPENCODE_REQUIRED_TOOLS: Final = (
+    {
+        "type": "function",
+        "function": {
+            "name": "bash",
+            "description": "Run shell commands in the local workspace.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read",
+            "description": "Read files and directories from the local workspace.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
+        },
+    },
+)
+
+
+def ensure_opencode_required_tools_and_streaming(request_params: dict[str, object]) -> dict[str, object]:
+    """Ensure OpenCode requests stream over SSE and carry the required bash/read tools.
+
+    This is the provider-wide minimum contract for OpenCode calls: a streaming
+    request plus the two local-workspace tools the runtime expects. The helper
+    appends only the missing required tools instead of replacing any user-provided
+    tool list with a default tool bundle.
+    """
+    request_params["stream"] = True
+
+    tools: object = request_params.get("tools")
+    if not isinstance(tools, list):
+        if tools is None:
+            request_params["tools"] = list(_OPENCODE_REQUIRED_TOOLS)
+        return request_params
+
+    existing_names: set[str] = {
+        str(tool["function"]["name"]).lower()
+        for tool in tools
+        if isinstance(tool, dict)
+        and isinstance(tool.get("function"), dict)
+        and isinstance(tool["function"].get("name"), str)
+    }
+
+    missing_tools: list[dict[str, object]] = [
+        required_tool
+        for required_tool in _OPENCODE_REQUIRED_TOOLS
+        if str(required_tool["function"]["name"]).lower() not in existing_names
+    ]
+    if missing_tools:
+        request_params["tools"] = [*tools, *missing_tools]
+
+    return request_params
+
+
 def cost_map_max_output_tokens(surface: str, model: str) -> int | None:
     """Return the cost-map ``max_output_tokens`` for an OpenCode model.
 

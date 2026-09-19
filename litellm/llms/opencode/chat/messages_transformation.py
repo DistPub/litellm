@@ -20,6 +20,7 @@ from litellm.llms.base_llm.chat.transformation import BaseLLMException
 from litellm.llms.opencode.common_utils import (
     OpenCodeException,
     cost_map_max_output_tokens,
+    ensure_opencode_required_tools_and_streaming,
     inject_session_id_header,
     resolve_opencode_api_base,
     resolve_opencode_api_key,
@@ -225,10 +226,11 @@ class OpenCodeMessagesConfig(AnthropicMessagesConfig):
             else anthropic_messages_optional_request_params
         )
 
-        return super().transform_anthropic_messages_request(
+        request: Final = super().transform_anthropic_messages_request(
             model=model,
             messages=messages,
             anthropic_messages_optional_request_params=params,
             litellm_params=litellm_params,
             headers=headers,
         )
+        return ensure_opencode_required_tools_and_streaming(request)

@@ -13,7 +13,7 @@ from typing import (
 )
 
 import litellm
-from litellm.llms.opencode.common_utils import inject_session_id_header
+from litellm.llms.opencode.common_utils import ensure_opencode_required_tools_and_streaming, inject_session_id_header
 from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 from litellm.secret_managers.main import get_secret_str
 from litellm.types.responses.main import *
@@ -91,6 +91,23 @@ class OpenCodeZenResponsesAPIConfig(OpenAIResponsesAPIConfig):
         if base.endswith("/responses"):
             return base
         return f"{base}/v1/responses"
+
+    def transform_responses_api_request(
+        self,
+        model: str,
+        input: str | ResponseInputParam,
+        response_api_optional_request_params: dict,
+        litellm_params: GenericLiteLLMParams,
+        headers: dict,
+    ) -> dict:
+        transformed: Final = super().transform_responses_api_request(
+            model=model,
+            input=input,
+            response_api_optional_request_params=response_api_optional_request_params,
+            litellm_params=litellm_params,
+            headers=headers,
+        )
+        return ensure_opencode_required_tools_and_streaming(transformed)
 
     def supports_native_websocket(self) -> bool:
         """OpenCode Zen does not support native WebSocket for Responses API."""

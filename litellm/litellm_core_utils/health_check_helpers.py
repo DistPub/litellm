@@ -4,7 +4,7 @@ Helper functions for health check calls.
 
 import base64
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from litellm.llms.base_llm.ocr.transformation import BaseOCRConfig, DocumentType
 from litellm.types.utils import LIST_BATCHES_SUPPORTED_PROVIDERS, LlmProviders
@@ -22,96 +22,12 @@ IMAGE_EDIT_HEALTH_CHECK_PROMPT: Final = (
     "Add a small yellow star in the top right corner of this simple drawing of a blue circle on a white background"
 )
 
-_OPENCODE_HEALTH_CHECK_TOOLS: Final = (
-    {
-        "type": "function",
-        "function": {
-            "name": "bash",
-            "description": "Run shell commands in the local workspace.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "read",
-            "description": "Read files and directories from the local workspace.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "glob",
-            "description": "Find files by glob patterns.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "grep",
-            "description": "Search code and text for matches.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list",
-            "description": "List files and directories.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "edit",
-            "description": "Edit files in the local workspace.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write",
-            "description": "Create or overwrite files in the local workspace.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "webfetch",
-            "description": "Fetch remote web content.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "websearch",
-            "description": "Search the web for information.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "task",
-            "description": "Run long-lived tasks or plans.",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": True},
-        },
-    },
-)
+from litellm.llms.opencode.common_utils import ensure_opencode_required_tools_and_streaming
 
 
-def _with_opencode_default_tools(model_params: dict) -> dict:
-    """Inject the default OpenCode CLI tool set used by the explore permission preset."""
-    if model_params.get("tools") is not None:
-        return model_params
-    model_params["tools"] = list(_OPENCODE_HEALTH_CHECK_TOOLS)
-    return model_params
+def _with_opencode_default_tools(model_params: dict[str, Any]) -> dict[str, Any]:
+    """Keep OpenCode health-check payloads aligned with the provider-wide request contract."""
+    return ensure_opencode_required_tools_and_streaming(model_params)
 
 
 def get_image_file_for_health_check() -> bytes:
@@ -159,8 +75,8 @@ class HealthCheckHelpers:
 
     @staticmethod
     def _update_model_params_with_health_check_tracking_information(
-        model_params: dict,
-    ) -> dict:
+        model_params: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Updates the health check model params with tracking information.
 
@@ -196,9 +112,9 @@ class HealthCheckHelpers:
     @staticmethod
     async def _batch_health_check(
         custom_llm_provider: str,
-        model_params: dict,
-        filtered_model_params: dict,
-    ) -> dict:
+        model_params: dict[str, Any],
+        filtered_model_params: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Health check for batch mode.
 
@@ -240,7 +156,7 @@ class HealthCheckHelpers:
     def get_mode_handlers(
         model: str,
         custom_llm_provider: str,
-        model_params: dict,
+        model_params: dict[str, Any],
         prompt: str | None = None,
         input: list | None = None,
     ) -> dict[

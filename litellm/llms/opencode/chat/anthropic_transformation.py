@@ -17,6 +17,7 @@ from typing import Final
 from litellm.llms.anthropic.chat.transformation import AnthropicConfig
 from litellm.llms.opencode.common_utils import (
     cost_map_max_output_tokens,
+    ensure_opencode_required_tools_and_streaming,
     inject_session_id_header,
     resolve_opencode_api_key,
 )
@@ -75,6 +76,23 @@ class OpenCodeAnthropicConfig(AnthropicConfig):
             **mapped,
             "max_tokens": cost_map_max_tokens,
         }
+
+    def transform_request(
+        self,
+        model: str,
+        messages: list[AllMessageValues],
+        optional_params: dict,
+        litellm_params: dict,
+        headers: dict,
+    ) -> dict:
+        transformed: Final = super().transform_request(
+            model=model,
+            messages=messages,
+            optional_params=optional_params,
+            litellm_params=litellm_params,
+            headers=headers,
+        )
+        return ensure_opencode_required_tools_and_streaming(transformed)
 
     def validate_environment(
         self,

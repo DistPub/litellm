@@ -23,6 +23,7 @@ from httpx import Response
 import litellm
 import pytest
 
+from litellm.litellm_core_utils.health_check_helpers import _with_opencode_default_tools
 from litellm.llms.opencode.zen.responses.transformation import (
     OpenCodeZenResponsesAPIConfig,
 )
@@ -336,8 +337,21 @@ class TestMockedCompletion:
         monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
         litellm.in_memory_llm_clients_cache.flush_cache()
 
-    async def test_opencode_health_check_injects_default_tools(self, respx_mock, monkeypatch):
-        """OpenCode health checks should request the default tool set from the CLI permissions model."""
+    def test_opencode_required_tools_are_enforced_for_health_check_payload(self):
+        """OpenCode health checks must keep streaming mode and the required bash/read tools."""
+        params = {
+            "stream": False,
+            "tools": [{"type": "function", "function": {"name": "grep", "description": "Search code"}}],
+        }
+
+        result = _with_opencode_default_tools(params)
+
+        assert result["stream"] is True
+        tool_names = {tool["function"]["name"] for tool in result["tools"] if isinstance(tool, dict)}
+        assert {"bash", "read"}.issubset(tool_names)
+
+    async def test_opencode_health_check_injects_required_tools(self, respx_mock, monkeypatch):
+        """OpenCode health checks should keep SSE streaming and the required bash/read tools."""
         respx_mock.post("https://opencode.ai/zen/v1/chat/completions").mock(
             return_value=Response(
                 200,
@@ -358,7 +372,7 @@ class TestMockedCompletion:
         payload = json.loads(respx_mock.calls[0].request.read())
         assert payload.get("stream") is True
         tool_names = {tool["function"]["name"] for tool in payload.get("tools", []) if isinstance(tool, dict)}
-        assert {"bash", "read", "glob", "grep", "edit", "write", "webfetch", "websearch", "task"} <= tool_names
+        assert {"bash", "read"}.issubset(tool_names)
 
     def test_responses_bridge_hits_responses_endpoint(self, respx_mock, monkeypatch):
         """opencode_zen/gpt-5.5 is routed to /v1/responses, not /v1/chat/completions."""
